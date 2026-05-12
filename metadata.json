@@ -1,0 +1,10 @@
+{
+  "name": "Eco-Sense",
+  "description": "A web-based interactive UI that uses environmental data to simulate the emotional and physiological state of trees.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": []
+}
