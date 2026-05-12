@@ -7,7 +7,7 @@ import ReflectionLayer from './components/ReflectionLayer';
 import { EnvParams, TreeState, ViewMode, UserLocation, SpatialMetrics } from './types';
 import { analyzeTreeState } from './services/geminiService';
 import { fetchWeatherData } from './services/externalServices';
-import { Volume2, Minimize2, RefreshCw } from 'lucide-react';
+import { Volume2, VolumeX, Minimize2, RefreshCw, Activity } from 'lucide-react';
 
 const App: React.FC = () => {
   // --- State ---
@@ -28,9 +28,12 @@ const App: React.FC = () => {
   });
 
   const [spatialMetrics, setSpatialMetrics] = useState<SpatialMetrics | null>(null);
+  const [reflectionHistory, setReflectionHistory] = useState<string[]>([]);
+  const [showKeyWarning, setShowKeyWarning] = useState(false);
 
   const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.STYLIZED);
   const [isLive, setIsLive] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [fetchingWeather, setFetchingWeather] = useState(false);
@@ -43,11 +46,20 @@ const App: React.FC = () => {
     try {
       const newState = await analyzeTreeState(currentParams);
       setTreeState(newState);
+      
+      // Update History
+      if (newState.reflection) {
+        setReflectionHistory(prev => {
+          const updated = [newState.reflection, ...prev.filter(r => r !== newState.reflection)];
+          return updated.slice(0, 5);
+        });
+      }
+      setShowKeyWarning(false);
     } catch (e: any) {
       console.error("Analysis Failure:", e);
-      // Fallback is now handled in service, but if critical failure happens:
-      // We do not overwrite with error message to keep UI clean, 
-      // relying on previous state or service fallback.
+      if (e.message?.includes("MISSING_API_KEY")) {
+        setShowKeyWarning(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -118,6 +130,11 @@ const App: React.FC = () => {
         <div>
           <h1 className="serif text-4xl text-gray-900 mb-1">Eco-Sense</h1>
           <p className="text-sm text-gray-500 font-light">Interactive Environmental Empathy Engine</p>
+          {showKeyWarning && (
+            <div className="mt-2 bg-amber-50 border border-amber-200 p-2 rounded text-[10px] text-amber-700 flex items-center gap-2 animate-pulse">
+               <Activity size={12} /> API Key Missing: Simulation Mode Active. Please set GEMINI_API_KEY in .env
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-4">
             <div className="hidden md:flex items-center gap-1 text-xs font-medium text-gray-500">
@@ -131,8 +148,12 @@ const App: React.FC = () => {
                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> 
                {loading ? 'Updating...' : 'Refresh'}
             </button>
-            <button className="bg-gray-200 p-3 rounded-full hover:bg-gray-300 transition-colors text-gray-700">
-              <Volume2 size={20} />
+            <button 
+              onClick={() => setIsMuted(!isMuted)}
+              className={`p-3 rounded-full transition-all duration-300 ${isMuted ? 'bg-red-50 text-red-500' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+              title={isMuted ? "Unmute" : "Mute"}
+            >
+               {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
             </button>
         </div>
       </header>
@@ -164,6 +185,7 @@ const App: React.FC = () => {
              spatialMetrics={spatialMetrics}
              setSpatialMetrics={setSpatialMetrics}
              userLocation={userLocation}
+             isMuted={isMuted}
           />
         </div>
 
@@ -173,6 +195,7 @@ const App: React.FC = () => {
             state={treeState} 
             spatial={spatialMetrics}
             isLoading={loading}
+            history={reflectionHistory}
           />
         </div>
 

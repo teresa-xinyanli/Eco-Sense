@@ -22,6 +22,7 @@ interface CenterPanelProps {
   spatialMetrics?: SpatialMetrics | null;
   setSpatialMetrics?: React.Dispatch<React.SetStateAction<SpatialMetrics | null>>;
   userLocation: UserLocation | null;
+  isMuted: boolean;
 }
 
 // --- Toolbar Component ---
@@ -73,8 +74,9 @@ const Scene: React.FC<{
   treeState: TreeState, 
   spatial?: SpatialMetrics | null, 
   userModelUrl: string | null,
-  vizMode: VisualizationMode 
-}> = ({ params, treeState, spatial, userModelUrl, vizMode }) => {
+  vizMode: VisualizationMode,
+  isMuted: boolean 
+}> = ({ params, treeState, spatial, userModelUrl, vizMode, isMuted }) => {
   const lightIntensity = (params.light / 100) * 2; 
 
   return (
@@ -100,12 +102,12 @@ const Scene: React.FC<{
       <Stars radius={100} depth={50} count={params.light < 20 ? 5000 : 0} factor={4} saturation={0} fade speed={1} />
       
       {userModelUrl ? (
-        <Suspense fallback={<TreeVisualizer mode={vizMode} params={params} treeState={treeState} spatial={spatial} variant="solid" />}>
+        <Suspense fallback={<TreeVisualizer mode={vizMode} params={params} treeState={treeState} spatial={spatial} variant="solid" isMuted={isMuted} />}>
            <UserModel url={userModelUrl} />
         </Suspense>
       ) : (
         // Standard Stylized View -> Solid Variant
-        <TreeVisualizer mode={vizMode} params={params} treeState={treeState} spatial={spatial} variant="solid" />
+        <TreeVisualizer mode={vizMode} params={params} treeState={treeState} spatial={spatial} variant="solid" isMuted={isMuted} />
       )}
 
       <ContactShadows opacity={0.4} scale={10} blur={2.5} far={4} color="#000000" />
@@ -262,7 +264,8 @@ const CenterPanel: React.FC<CenterPanelProps> = ({
   setTreeState, 
   spatialMetrics,
   setSpatialMetrics,
-  userLocation 
+  userLocation,
+  isMuted 
 }) => {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadedModelUrl, setUploadedModelUrl] = useState<string | null>(null);
@@ -441,6 +444,7 @@ const CenterPanel: React.FC<CenterPanelProps> = ({
                  spatial={spatialMetrics} 
                  userModelUrl={uploadedModelUrl} 
                  vizMode={vizMode}
+                 isMuted={isMuted}
                />
              </Canvas>
              <VizToolbar mode={vizMode} setMode={setVizMode} />
@@ -504,7 +508,7 @@ const CenterPanel: React.FC<CenterPanelProps> = ({
 
                           <Suspense fallback={null}>
                              {/* Render the Particle System ('particles') for Street View Overlay */}
-                             <TreeVisualizer mode={vizMode} params={params} treeState={treeState} spatial={spatialMetrics} variant="particles" />
+                             <TreeVisualizer mode={vizMode} params={params} treeState={treeState} spatial={spatialMetrics} variant="particles" isMuted={isMuted} />
                           </Suspense>
                       </Canvas>
                    </div>

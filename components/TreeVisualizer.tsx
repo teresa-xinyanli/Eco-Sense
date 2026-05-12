@@ -12,6 +12,7 @@ interface TreeVisualizerProps {
   treeState: TreeState;
   spatial?: SpatialMetrics | null;
   variant?: 'solid' | 'particles'; 
+  isMuted: boolean;
 }
 
 const COUNT = 3500; 
@@ -384,11 +385,13 @@ const BioScannerHUD: React.FC<{
 };
 
 // --- Sub-Component: Sound Player ---
-const SoundEffect: React.FC<{ emotionalStatus: string }> = ({ emotionalStatus }) => {
+const SoundEffect: React.FC<{ emotionalStatus: string, isMuted: boolean }> = ({ emotionalStatus, isMuted }) => {
   const oscRef = useRef<OscillatorNode | null>(null);
   const gainRef = useRef<GainNode | null>(null);
 
   useEffect(() => {
+    if (isMuted) return;
+    
     const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContext) return;
     
@@ -438,7 +441,7 @@ const SoundEffect: React.FC<{ emotionalStatus: string }> = ({ emotionalStatus })
         ctx.close();
       } catch (e) { console.error(e) }
     };
-  }, [emotionalStatus]);
+  }, [emotionalStatus, isMuted]);
 
   return null;
 };
@@ -499,7 +502,7 @@ const ArchiveLink: React.FC<{
 };
 
 // --- Main Component ---
-const TreeVisualizer: React.FC<TreeVisualizerProps> = ({ mode, params, treeState, spatial, variant = 'solid' }) => {
+const TreeVisualizer: React.FC<TreeVisualizerProps> = ({ mode, params, treeState, spatial, variant = 'solid', isMuted }) => {
   const pointsRef = useRef<THREE.Points>(null);
   const groupRef = useRef<THREE.Group>(null);
   
@@ -846,7 +849,7 @@ const TreeVisualizer: React.FC<TreeVisualizerProps> = ({ mode, params, treeState
         }
     }}> 
       
-      {(mode === 'SOUND' || mode === 'SHADER') && <SoundEffect emotionalStatus={treeState.emotionalStatus} />}
+      {(mode === 'SOUND' || mode === 'SHADER') && <SoundEffect emotionalStatus={treeState.emotionalStatus} isMuted={isMuted} />}
       
       {/* ENVIRONMENTAL SYSTEM (New dynamic layer based on weather/pollution/light) */}
       <EnvironmentalSystem 
@@ -912,8 +915,8 @@ const TreeVisualizer: React.FC<TreeVisualizerProps> = ({ mode, params, treeState
       {/* TEXT MODE: 2D BILLBOARDED CALLIGRAM */}
       {mode === 'TEXT' && (
         // Wrap entire group in Billboard so the "Paper" always faces the viewer
-        <Billboard follow={true} lockX={false} lockY={false} lockZ={false}>
-          <group>
+        <Billboard follow={true} lockX={false} lockY={false} lockZ={false} castShadow={false} receiveShadow={false}>
+          <group castShadow={false} receiveShadow={false}>
              {textVolumetrics.map((item, i) => (
                  <Text 
                    key={i}
@@ -924,6 +927,8 @@ const TreeVisualizer: React.FC<TreeVisualizerProps> = ({ mode, params, treeState
                    anchorX="center"
                    anchorY="middle"
                    font="https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hjp-Ek-_EeA.woff"
+                   castShadow={false}
+                   receiveShadow={false}
                  >
                    {item.text}
                  </Text>

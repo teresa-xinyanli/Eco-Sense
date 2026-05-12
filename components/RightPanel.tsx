@@ -7,9 +7,10 @@ interface RightPanelProps {
   state: TreeState;
   spatial?: SpatialMetrics | null;
   isLoading: boolean;
+  history?: string[];
 }
 
-const RightPanel: React.FC<RightPanelProps> = ({ state, spatial, isLoading }) => {
+const RightPanel: React.FC<RightPanelProps> = ({ state, spatial, isLoading, history = [] }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const cardBaseClass = "bg-white rounded-2xl p-5 shadow-sm flex flex-col gap-3 min-h-[140px] transition-all duration-500";
   const labelClass = "text-[10px] font-bold tracking-[0.15em] text-gray-400 uppercase flex items-center gap-2";
@@ -115,6 +116,22 @@ const RightPanel: React.FC<RightPanelProps> = ({ state, spatial, isLoading }) =>
            </p>
         </div>
       </div>
+
+      {/* Narrative Archive (History) */}
+      {history.length > 1 && (
+        <div className="bg-gray-100/50 rounded-2xl p-5 flex flex-col gap-3">
+           <div className={labelClass}>
+             <Activity size={14} className="text-gray-400" /> Narrative Archive
+           </div>
+           <div className="space-y-3">
+              {history.slice(1).map((reflection, idx) => (
+                <div key={idx} className="text-[10px] text-gray-500 leading-tight border-l-2 border-gray-200 pl-2 py-1">
+                   "{reflection}"
+                </div>
+              ))}
+           </div>
+        </div>
+      )}
 
     </div>
   );

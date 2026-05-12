@@ -3,9 +3,21 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { EnvParams, TreeState, SpatialMetrics, TREE_SPECIES } from "../types";
 import { getScientificTreeState } from "./speciesEngine";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let genAI: GoogleGenAI | null = null;
 
-const modelName = "gemini-2.5-flash";
+const getAI = () => {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+  if (!apiKey || apiKey === "undefined" || apiKey === "") {
+    // If no key, we will return null and let the functions use fallbacks
+    return null;
+  }
+  if (!genAI) {
+    genAI = new GoogleGenAI({ apiKey });
+  }
+  return genAI;
+};
+
+const modelName = "gemini-2.0-flash"; // Upgraded to 2.0 Flash for better speed/logic
 
 // --- Helper: Convert URL to Base64 (Best Effort for Street View) ---
 const urlToBase64 = async (url: string): Promise<string> => {
@@ -73,11 +85,15 @@ export const analyzeTreeState = async (params: EnvParams): Promise<TreeState> =>
     Output JSON.
   `;
 
+  const ai = getAI();
+  if (!ai) {
+    throw new Error("MISSING_API_KEY");
+  }
+
   try {
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: prompt,
-      config: {
+    const response = await ai.getGenerativeModel({ model: modelName }).generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -92,7 +108,7 @@ export const analyzeTreeState = async (params: EnvParams): Promise<TreeState> =>
       },
     });
 
-    const jsonText = response.text;
+    const jsonText = response.response.text();
     if (!jsonText) throw new Error("No response from Gemini");
     
     const geminiResult = JSON.parse(jsonText) as TreeState;
@@ -136,6 +152,9 @@ export const analyzeTreeState = async (params: EnvParams): Promise<TreeState> =>
 
 // Deprecated in favor of full analysis, but kept for legacy calls if needed
 export const identifyTreeSpecies = async (imageFile: File): Promise<string | null> => {
+  const ai = getAI();
+  if (!ai) return "API Key Required";
+
   try {
     const base64 = await fileToBase64(imageFile);
     const imagePart = { inlineData: { data: base64, mimeType: imageFile.type } };
@@ -143,8 +162,7 @@ export const identifyTreeSpecies = async (imageFile: File): Promise<string | nul
     const prompt = `Analyze this image and identify the tree species. 
     Return ONLY the common name. If uncertain, return 'Unknown'.`;
 
-    const response = await ai.models.generateContent({
-      model: modelName,
+    const response = await ai.getGenerativeModel({ model: modelName }).generateContent({
       contents: { parts: [imagePart, { text: prompt }] }
     });
 
@@ -251,14 +269,19 @@ export const analyzeTreeImage = async (
 // --- Shared Execution Logic ---
 
 async function executeFullAnalysis(textPrompt: string, imagePart: any): Promise<StreetViewAnalysisResult> {
+  const ai = getAI();
+  if (!ai) {
+     // Return a simulated result even if Key is missing, so UI stays functional
+     return simulateAnalysisResponse(textPrompt);
+  }
+
   const parts: any[] = [{ text: textPrompt }];
   if (imagePart) parts.unshift(imagePart);
 
   try {
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: { parts },
-      config: {
+    const response = await ai.getGenerativeModel({ model: modelName }).generateContent({
+      contents: [{ role: 'user', parts: parts }],
+      generationConfig: {
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -293,7 +316,8 @@ async function executeFullAnalysis(textPrompt: string, imagePart: any): Promise<
       },
     });
 
-    const data = JSON.parse(response.text || "{}");
+    const textResult = response.response.text();
+    const data = JSON.parse(textResult || "{}");
     
     return {
       species: data.detectedSpecies || "Unknown Tree",
@@ -372,4 +396,48 @@ async function executeFullAnalysis(textPrompt: string, imagePart: any): Promise<
       }
     };
   }
+}
+
+/**
+ * Fallback simulation for when API key is missing or quota is hit
+ */
+function simulateAnalysisResponse(prompt: string): StreetViewAnalysisResult {
+    const randomSpecies = TREE_SPECIES[Math.floor(Math.random() * TREE_SPECIES.length)];
+    const fallbackEnv: EnvParams = {
+        species: randomSpecies,
+        temperature: 20,
+        humidity: 60,
+        light: 50,
+        environment: 'open'
+    };
+
+    const sciState = getScientificTreeState(fallbackEnv);
+    
+    return {
+      species: randomSpecies,
+      environment: {
+        temperature: 20,
+        humidity: 60,
+        light: 50,
+        crownShape: 'spreading',
+        canopyProfile: [0.2, 0.4, 0.6, 0.8, 1.0, 0.8, 0.5, 0.3],
+        trunkHeightRatio: 0.15,
+        foliageColor: "#3e5c35" 
+      },
+      spatial: {
+        hasBuildingProximity: true,
+        isStreetSide: true,
+        hasPavement: true,
+        isEnclosed: false,
+        scientificAnalysis: "Simulated analysis: Key missing or quota hit."
+      },
+      state: {
+        emotionalStatus: sciState?.emotionalStatus || "Stable",
+        physiologicalState: sciState?.physiologicalState || "Functioning in simulation.",
+        sonicResponse: sciState?.sonicResponse || "Ambient hum.",
+        visualSignal: sciState?.visualSignal || "Standard growth.",
+        reflection: "The digital consciousness is offline, but the tree persists in code.",
+        isSimulation: true
+      }
+    };
 }
